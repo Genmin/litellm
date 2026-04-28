@@ -20,7 +20,11 @@ from typing import (
 import httpx
 from pydantic import BaseModel
 
-from litellm.constants import DEFAULT_MAX_TOKENS, RESPONSE_FORMAT_TOOL_NAME
+from litellm.constants import (
+    DEFAULT_MAX_TOKENS,
+    MAX_EXCEPTION_MESSAGE_LENGTH,
+    RESPONSE_FORMAT_TOOL_NAME,
+)
 from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
 from litellm.types.llms.openai import (
     AllMessageValues,
@@ -57,6 +61,13 @@ class BaseLLMException(Exception):
         response: Optional[httpx.Response] = None,
         body: Optional[dict] = None,
     ):
+        # provider sites interpolate raw response bodies into `message` — cap to the tail.
+        if len(message) > MAX_EXCEPTION_MESSAGE_LENGTH:
+            skipped = len(message) - MAX_EXCEPTION_MESSAGE_LENGTH
+            message = (
+                f"...[truncated {skipped} chars]..."
+                f"{message[-MAX_EXCEPTION_MESSAGE_LENGTH:]}"
+            )
         self.status_code = status_code
         self.message: str = message
         self.headers = headers
